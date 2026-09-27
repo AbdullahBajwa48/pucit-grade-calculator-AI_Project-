@@ -28,7 +28,7 @@ Put your real Groq key in `.env`:
 GROQ_API_KEY=your_key_here
 ```
 
-Do not commit `.env`.
+
 
 ## Terminal agent
 
@@ -39,7 +39,7 @@ python agent.py
 The program explicitly carries the complete message history from one turn to the next.
 This is the required stateless-model conversation pattern.
 
-## Streamlit bonus GUI
+## Streamlit GUI
 
 ```bash
 streamlit run app.py
@@ -67,7 +67,3 @@ streamlit run app.py
 5. Saving:
    Ask explicitly to save a completed result. The agent should then call `save_report`.
 
-## Out of scope
-
-Repeating/improving courses, relative grading/curves/moderation, incomplete grades,
-withdrawals, freezes, and persistence between separate program runs.
