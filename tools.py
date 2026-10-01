@@ -1,12 +1,15 @@
-"""Deterministic GPA/CGPA tools for the PUCIT BS(CS) conversational agent."""
+"""Deterministic GPA/CGPA tools for the PUCIT BS(CS) agent."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Union
 
 from langchain.tools import tool
 
+
+# ============================================================
+# OFFICIAL COURSE SCHEME
+# ============================================================
 
 COURSES: dict[int, list[tuple[str, str, float]]] = {
     1: [
@@ -17,6 +20,7 @@ COURSES: dict[int, list[tuple[str, str, float]]] = {
         ("HQ-001", "Quran Translation - I", 0.5),
         ("GE-190", "Functional English", 3.0),
     ],
+
     2: [
         ("CC-112", "Programming Fundamentals", 3.0),
         ("CC-112-L", "Programming Fundamentals Lab", 1.0),
@@ -27,6 +31,7 @@ COURSES: dict[int, list[tuple[str, str, float]]] = {
         ("GE-163", "Islamic Studies", 2.0),
         ("HQ-002", "Quran Translation - II", 0.5),
     ],
+
     3: [
         ("CC-211", "Object Oriented Programming", 3.0),
         ("CC-211-L", "Object Oriented Programming Lab", 1.0),
@@ -37,6 +42,7 @@ COURSES: dict[int, list[tuple[str, str, float]]] = {
         ("GE-192", "Introduction to Management", 2.0),
         ("HQ-003", "Quran Translation - III", 0.5),
     ],
+
     4: [
         ("CC-213", "Data Structures", 3.0),
         ("CC-213-L", "Data Structures Lab", 1.0),
@@ -46,6 +52,7 @@ COURSES: dict[int, list[tuple[str, str, float]]] = {
         ("DC-220", "Advanced Database Management Systems", 3.0),
         ("HQ-004", "Quran Translation - IV", 0.5),
     ],
+
     5: [
         ("CC-313", "Analysis of Algorithms", 3.0),
         ("CC-310", "Artificial Intelligence", 3.0),
@@ -55,6 +62,7 @@ COURSES: dict[int, list[tuple[str, str, float]]] = {
         ("EC-330", "Web Technologies / Elective", 3.0),
         ("HQ-005", "Quran Translation - V", 0.5),
     ],
+
     6: [
         ("CC-311", "Operating Systems", 3.0),
         ("EC-333", "Mobile Application Development / Elective", 3.0),
@@ -64,6 +72,7 @@ COURSES: dict[int, list[tuple[str, str, float]]] = {
         ("MS-253", "Multivariable Calculus", 3.0),
         ("HQ-006", "Quran Translation - VI", 0.5),
     ],
+
     7: [
         ("CC-411", "Final Year Project - I", 2.0),
         ("DC-328", "Parallel & Distributed Computing", 3.0),
@@ -74,6 +83,7 @@ COURSES: dict[int, list[tuple[str, str, float]]] = {
         ("GE-262", "Professional Practices", 2.0),
         ("HQ-007", "Quran Translation - VII", 0.5),
     ],
+
     8: [
         ("CC-412", "Final Year Project - II", 4.0),
         ("DC-421", "Compiler Construction", 3.0),
@@ -83,6 +93,11 @@ COURSES: dict[int, list[tuple[str, str, float]]] = {
         ("HQ-008", "Quran Translation - VIII", 0.5),
     ],
 }
+
+
+# ============================================================
+# GRADE SCALE
+# ============================================================
 
 GRADE_BANDS: tuple[tuple[int, float, str], ...] = (
     (85, 4.0, "A"),
@@ -98,43 +113,111 @@ GRADE_BANDS: tuple[tuple[int, float, str], ...] = (
 )
 
 
+# ============================================================
+# VALIDATION HELPERS
+# ============================================================
+
 def _valid_marks(marks: int) -> bool:
     return isinstance(marks, int) and 0 <= marks <= 100
 
 
 def _valid_nonnegative(value: float) -> bool:
-    return isinstance(value, (int, float)) and value >= 0
+    return (
+        isinstance(value, (int, float))
+        and value >= 0
+    )
 
+
+def _valid_semester(semester: int) -> bool:
+    return (
+        isinstance(semester, int)
+        and 1 <= semester <= 8
+    )
+
+
+# ============================================================
+# MARKS -> GRADE POINTS
+# ============================================================
 
 @tool
 def marks_to_grade_points(marks: int) -> float:
-    """Use when a student's marks must be converted to PUCIT grade points; return an error for marks outside the valid range."""
+    """
+    Convert marks into PUCIT grade points.
+
+    Use this whenever marks need to be converted to grade points.
+    """
     if not _valid_marks(marks):
         return "Error: marks must be an integer between 0 and 100"
+
     for minimum, points, _grade in GRADE_BANDS:
         if marks >= minimum:
             return points
+
     return 0.0
 
 
+# ============================================================
+# SEMESTER GPA
+# ============================================================
+
 @tool
 def calculate_semester_gpa(
-    grade_points: list[float], credit_hours: list[float]
+    grade_points: list[float],
+    credit_hours: list[float],
 ) -> float:
-    """Use after grade points and matching credit hours are known to calculate one semester's credit-weighted GPA."""
+    """
+    Calculate a credit-weighted semester GPA.
+
+    grade_points and credit_hours must correspond course-by-course.
+    """
     if len(grade_points) != len(credit_hours):
-        return "Error: grade_points and credit_hours must have the same length"
+        return (
+            "Error: grade_points and credit_hours "
+            "must have the same length"
+        )
+
     if not grade_points:
         return "Error: at least one course is required"
-    if any(not isinstance(g, (int, float)) or not 0.0 <= g <= 4.0 for g in grade_points):
-        return "Error: grade points must be between 0.0 and 4.0"
-    if any(not _valid_nonnegative(c) for c in credit_hours):
-        return "Error: credit hours must be non-negative numbers"
-    total_hours = sum(credit_hours)
-    if total_hours <= 0:
-        return "Error: total credit hours must be greater than 0"
-    return sum(g * c for g, c in zip(grade_points, credit_hours)) / total_hours
 
+    if any(
+        not isinstance(g, (int, float))
+        or not 0.0 <= g <= 4.0
+        for g in grade_points
+    ):
+        return "Error: grade points must be between 0.0 and 4.0"
+
+    if any(
+        not _valid_nonnegative(c)
+        for c in credit_hours
+    ):
+        return (
+            "Error: credit hours must be "
+            "non-negative numbers"
+        )
+
+    total_hours = sum(credit_hours)
+
+    if total_hours <= 0:
+        return (
+            "Error: total credit hours "
+            "must be greater than 0"
+        )
+
+    return (
+        sum(
+            g * c
+            for g, c in zip(
+                grade_points,
+                credit_hours,
+            )
+        )
+        / total_hours
+    )
+
+
+# ============================================================
+# PROJECTED CGPA
+# ============================================================
 
 @tool
 def calculate_new_cgpa(
@@ -143,23 +226,65 @@ def calculate_new_cgpa(
     semester_gpa: float,
     semester_credit_hours: float,
 ) -> float:
-    """Use when projecting a student's cumulative GPA after adding one completed semester."""
-    if not isinstance(current_cgpa, (int, float)) or not 0.0 <= current_cgpa <= 4.0:
-        return "Error: current_cgpa must be between 0.0 and 4.0"
+    """
+    Project CGPA after adding one completed semester.
+    """
+    if (
+        not isinstance(current_cgpa, (int, float))
+        or not 0.0 <= current_cgpa <= 4.0
+    ):
+        return (
+            "Error: current_cgpa "
+            "must be between 0.0 and 4.0"
+        )
+
     if not _valid_nonnegative(completed_credit_hours):
-        return "Error: completed_credit_hours must be non-negative"
-    if not isinstance(semester_gpa, (int, float)) or not 0.0 <= semester_gpa <= 4.0:
-        return "Error: semester_gpa must be between 0.0 and 4.0"
-    if not isinstance(semester_credit_hours, (int, float)) or semester_credit_hours <= 0:
-        return "Error: semester_credit_hours must be greater than 0"
-    denominator = completed_credit_hours + semester_credit_hours
+        return (
+            "Error: completed_credit_hours "
+            "must be non-negative"
+        )
+
+    if (
+        not isinstance(semester_gpa, (int, float))
+        or not 0.0 <= semester_gpa <= 4.0
+    ):
+        return (
+            "Error: semester_gpa "
+            "must be between 0.0 and 4.0"
+        )
+
+    if (
+        not isinstance(
+            semester_credit_hours,
+            (int, float),
+        )
+        or semester_credit_hours <= 0
+    ):
+        return (
+            "Error: semester_credit_hours "
+            "must be greater than 0"
+        )
+
+    denominator = (
+        completed_credit_hours
+        + semester_credit_hours
+    )
+
     if denominator <= 0:
-        return "Error: total credit hours must be greater than 0"
+        return (
+            "Error: total credit hours "
+            "must be greater than 0"
+        )
+
     return (
         current_cgpa * completed_credit_hours
         + semester_gpa * semester_credit_hours
     ) / denominator
 
+
+# ============================================================
+# REQUIRED GPA
+# ============================================================
 
 @tool
 def required_gpa_for_target(
@@ -168,77 +293,233 @@ def required_gpa_for_target(
     completed_credit_hours: float,
     remaining_credit_hours: float,
 ) -> float:
-    """Use when calculating the GPA required over a specified remaining-credit-hour horizon to reach a target CGPA."""
+    """
+    Calculate the GPA required over a specified
+    remaining-credit-hour horizon to reach a target CGPA.
+    """
     for name, value in (
         ("target_cgpa", target_cgpa),
         ("current_cgpa", current_cgpa),
     ):
-        if not isinstance(value, (int, float)) or not 0.0 <= value <= 4.0:
-            return f"Error: {name} must be between 0.0 and 4.0"
+        if (
+            not isinstance(value, (int, float))
+            or not 0.0 <= value <= 4.0
+        ):
+            return (
+                f"Error: {name} "
+                "must be between 0.0 and 4.0"
+            )
+
     if not _valid_nonnegative(completed_credit_hours):
-        return "Error: completed_credit_hours must be non-negative"
-    if not isinstance(remaining_credit_hours, (int, float)) or remaining_credit_hours <= 0:
-        return "Error: remaining_credit_hours must be greater than 0"
+        return (
+            "Error: completed_credit_hours "
+            "must be non-negative"
+        )
+
+    if (
+        not isinstance(
+            remaining_credit_hours,
+            (int, float),
+        )
+        or remaining_credit_hours <= 0
+    ):
+        return (
+            "Error: remaining_credit_hours "
+            "must be greater than 0"
+        )
+
     return (
-        target_cgpa * (completed_credit_hours + remaining_credit_hours)
-        - current_cgpa * completed_credit_hours
+        target_cgpa
+        * (
+            completed_credit_hours
+            + remaining_credit_hours
+        )
+        - current_cgpa
+        * completed_credit_hours
     ) / remaining_credit_hours
 
 
+# ============================================================
+# OFFICIAL SEMESTER COURSES
+# ============================================================
+
 @tool
 def get_semester_courses(semester: int) -> str:
-    """Use when a student gives a semester number and you need that semester's official courses and credit hours."""
-    if not isinstance(semester, int) or not 1 <= semester <= 8:
-        return "Error: semester must be between 1 and 8"
-    # Asking for the official current-semester scheme establishes a fresh
-    # target-planning context for the current conversation.
-    global _planning_start_semester
-    _planning_start_semester = semester
-    lines = [f"Semester {semester} courses:"]
+    """
+    Return the official course list and credit hours
+    for a semester.
+
+    This must be used before GPA calculations involving
+    a semester and at the beginning of target planning.
+    """
+    if not _valid_semester(semester):
+        return (
+            "Error: semester "
+            "must be between 1 and 8"
+        )
+
+    lines = [
+        f"Semester {semester} courses:"
+    ]
+
     for code, name, credits in COURSES[semester]:
-        lines.append(f"{code} | {name} | {credits} credit hours")
+        lines.append(
+            f"{code} | {name} | {credits} credit hours"
+        )
+
     return "\n".join(lines)
 
 
+# ============================================================
+# COMPLETED CREDIT HOURS
+# ============================================================
+
 @tool
-def get_remaining_credit_hours(current_semester: int) -> float:
-    """Use for target-GPA planning to total graded credit hours from the planning-start semester through the supplied horizon semester."""
-    if not isinstance(current_semester, int) or not 1 <= current_semester <= 8:
-        return "Error: semester must be between 1 and 8"
-    start = globals().get("_planning_start_semester")
-    if start is None:
-        start = current_semester
-        globals()["_planning_start_semester"] = start
-    if current_semester < start:
-        return "Error: planning horizon cannot move backward"
+def get_completed_credit_hours(
+    current_semester: int,
+) -> float:
+    """
+    Return the cumulative graded credit hours completed
+    before the current semester.
+
+    For semester N, this totals semesters 1 through N-1.
+
+    This prevents the agent from asking the student for
+    completed credit hours.
+    """
+    if not _valid_semester(current_semester):
+        return (
+            "Error: semester "
+            "must be between 1 and 8"
+        )
+
     return sum(
         credits
-        for semester in range(start, current_semester + 1)
+        for semester in range(
+            1,
+            current_semester,
+        )
         for _code, _name, credits in COURSES[semester]
     )
 
 
+# ============================================================
+# REMAINING CREDIT HOURS
+# ============================================================
+
 @tool
-def save_report(filename: str, content: str) -> str:
-    """Use only after the student explicitly asks to save a useful GPA/CGPA result or plan; never save automatically."""
-    if not isinstance(filename, str) or not filename.strip():
+def get_remaining_credit_hours(
+    planning_start_semester: int,
+    horizon_semester: int,
+) -> float:
+    """
+    Return cumulative graded credit hours from the
+    planning-start semester through the horizon semester.
+
+    Example:
+
+    planning_start_semester=4
+    horizon_semester=6
+
+    means semesters 4, 5, and 6.
+
+    The agent must pass the returned value directly
+    into required_gpa_for_target.
+    """
+    if not _valid_semester(planning_start_semester):
+        return (
+            "Error: planning_start_semester "
+            "must be between 1 and 8"
+        )
+
+    if not _valid_semester(horizon_semester):
+        return (
+            "Error: horizon_semester "
+            "must be between 1 and 8"
+        )
+
+    if horizon_semester < planning_start_semester:
+        return (
+            "Error: horizon_semester "
+            "cannot be before planning_start_semester"
+        )
+
+    return sum(
+        credits
+        for semester in range(
+            planning_start_semester,
+            horizon_semester + 1,
+        )
+        for _code, _name, credits in COURSES[semester]
+    )
+
+
+# ============================================================
+# SAVE REPORT
+# ============================================================
+
+@tool
+def save_report(
+    filename: str,
+    content: str,
+) -> str:
+    """
+    Save a report only when the student explicitly requests it.
+    """
+    if (
+        not isinstance(filename, str)
+        or not filename.strip()
+    ):
         return "Error: filename must not be empty"
-    if not isinstance(content, str) or not content.strip():
+
+    if (
+        not isinstance(content, str)
+        or not content.strip()
+    ):
         return "Error: content must not be empty"
+
     safe_name = Path(filename).name
-    if safe_name != filename or safe_name in {".", ".."}:
-        return "Error: filename must be a simple filename without directories"
+
+    if (
+        safe_name != filename
+        or safe_name in {".", ".."}
+    ):
+        return (
+            "Error: filename must be a simple "
+            "filename without directories"
+        )
+
     if not safe_name.lower().endswith(".txt"):
         safe_name += ".txt"
-    reports_dir = Path(__file__).resolve().parent / "reports"
-    reports_dir.mkdir(exist_ok=True)
-    destination = reports_dir / safe_name
-    try:
-        destination.write_text(content, encoding="utf-8")
-    except OSError as exc:
-        return f"Error: could not save report: {exc}"
-    return f"Report saved successfully as {destination.name}"
 
+    reports_dir = (
+        Path(__file__).resolve().parent
+        / "reports"
+    )
+
+    reports_dir.mkdir(exist_ok=True)
+
+    destination = reports_dir / safe_name
+
+    try:
+        destination.write_text(
+            content,
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        return (
+            f"Error: could not save report: {exc}"
+        )
+
+    return (
+        f"Report saved successfully as "
+        f"{destination.name}"
+    )
+
+
+# ============================================================
+# TOOL LIST
+# ============================================================
 
 TOOLS = [
     marks_to_grade_points,
@@ -246,6 +527,7 @@ TOOLS = [
     calculate_new_cgpa,
     required_gpa_for_target,
     get_semester_courses,
+    get_completed_credit_hours,
     get_remaining_credit_hours,
     save_report,
 ]
